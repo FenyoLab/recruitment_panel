@@ -6,8 +6,11 @@ import seaborn as sns
 import numpy as np
 from scipy.stats import mannwhitneyu
 
-root_dir = "/Users/sarahkeegan/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized BER recruitment data only"
+root_dir = "/Users/snk218/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized BER recruitment data only"
 n_timepoints=242
+subtract_t0=True
+p_value_window = 50
+p_cutoff=0.05
 
 dir_list = next(os.walk(root_dir))[1]
 num_proteins = len(dir_list)
@@ -50,6 +53,13 @@ for i,cur_dir in enumerate(dir_list):
     else:
         df_ctrl.drop(null_idx,axis=0,inplace=True)
 
+    # Subtract initial starting value from all values so first time point intensity difference is 0
+    if(subtract_t0):
+        df_all[df_all.columns[df_all.columns != "Time (s)"]] = df_all[df_all.columns[df_all.columns != "Time (s)"]] - \
+                                                               df_all[df_all.columns[df_all.columns != "Time (s)"]].iloc[0]
+        df_ctrl[df_ctrl.columns[df_ctrl.columns != "Time (s)"]] = df_ctrl[df_ctrl.columns[df_ctrl.columns != "Time (s)"]] - \
+                                                                  df_ctrl[df_ctrl.columns[df_ctrl.columns != "Time (s)"]].iloc[0]
+
     # MELT THE DATA FRAMES
     df_all=df_all.melt(id_vars=['Time (s)'], value_vars=df_all.columns[df_all.columns != "Time (s)"], var_name='cell', value_name='intensity-diff')
     df_all['cell']=df_all['cell'].astype('str') + '_0'
@@ -64,11 +74,12 @@ for i,cur_dir in enumerate(dir_list):
     # STATISTICS OVER TIME WINDOWS FROM START TO FINISH
     # Take the mean intensity of siALL/siCtrl for time windows of 50s
     # Use Mann Whitney to test for significance and get a p-value for each time window
-    gap = 50
     times_sig=[]
     times_sig_=[]
-    for start_t in range(25, 625 + gap, gap):
-        end_t = start_t + gap
+    max_time=int(np.max(df_all['Time (s)']))
+    for start_t in range(25, 1150 + p_value_window, p_value_window):
+        #print(start_t)
+        end_t = start_t + p_value_window
 
         df_all_filt = df_all[(df_all['Time (s)'] >= start_t) & (df_all['Time (s)'] <= end_t)]
         df_all_data = df_all_filt.groupby('cell').mean()['intensity-diff']
@@ -76,18 +87,16 @@ for i,cur_dir in enumerate(dir_list):
         df_ctrl_filt = df_ctrl[(df_ctrl['Time (s)'] >= start_t) & (df_ctrl['Time (s)'] <= end_t)]
         df_ctrl_data = df_ctrl_filt.groupby('cell').mean()['intensity-diff']
 
-        orig_len = len(df_all_data)
-        df_all_data = df_all_data[df_all_data > 0]
-        print(f"siAll: Negatives removed: {orig_len - len(df_all_data)} ({len(df_all_data)})")
+        num_neg_siAll = len(df_all_data[df_all_data < 0])
+        df_all_data[df_all_data<0]=0
 
-        orig_len = len(df_ctrl_data)
-        df_ctrl_data = df_ctrl_data[df_ctrl_data > 0]
-        print(f"siCtrl: Negatives removed: {orig_len - len(df_ctrl_data)} ({len(df_ctrl_data)})")
+        num_neg_siCtrl = len(df_ctrl_data[df_ctrl_data < 0])
+        df_ctrl_data[df_ctrl_data<0]=0
 
-        # Use Mann Whitney?
+        # Use Mann Whitney
         U1, p = mannwhitneyu(df_all_data, df_ctrl_data)
         # print(p)
-        if(p < 0.05):
+        if(p < p_cutoff):
             sig=1
             times_sig_.append(start_t)
         else:
@@ -99,7 +108,11 @@ for i,cur_dir in enumerate(dir_list):
         pvalue_matrix.append([
             protein_name,
             start_t,
-            end_t,
+            min(end_t,max_time),
+            num_neg_siAll,
+            len(df_all_data),
+            num_neg_siCtrl,
+            len(df_ctrl_data),
             p,
             sig
         ])
@@ -113,14 +126,16 @@ for i,cur_dir in enumerate(dir_list):
         times_sig=times_sig[max_index]
 
         p_times.append(times_sig[0])
-        p_times.append(times_sig[-1]+gap)
+        p_times.append(min(times_sig[-1]+p_value_window,max_time))
 
 
     # PLOT
+    colors_dict={'siALL':'orange','siCtrl':'blue'}
     # Plot mean with error shading of intensity-difference over time, for each protein
     if(make_plot):     # (have a flag here b/c plot takes a long time to make)
-        sns.lineplot(data=df_full, x='Time (s)', y='intensity-diff', hue='condition', ax=axs[row_i][col_i])
+        sns.lineplot(data=df_full, x='Time (s)', y='intensity-diff', hue='condition', ax=axs[row_i][col_i], palette=colors_dict)
         axs[row_i][col_i].set_title(protein_name)
+        axs[row_i][col_i].set_ylabel('Intensity')
 
         if(p_times != []):
 
@@ -143,17 +158,21 @@ for i,cur_dir in enumerate(dir_list):
 
     # divide by max value over siAll and siCtrl so that data will be between 0 and 1
     max_val=np.max([df_mean['siAll'].max(),df_mean['siCtrl'].max()])
-    min_val = np.max([df_mean['siAll'].min(), df_mean['siCtrl'].min()])
+    min_val = np.min([df_mean['siAll'].min(), df_mean['siCtrl'].min()])
 
-    df_mean['siAll-norm'] = (df_mean['siAll']-min_val) / (max_val-min_val)
-    df_mean['siCtrl-norm'] = (df_mean['siCtrl']-min_val) / (max_val-min_val)
+    #df_mean['siAll-norm'] = (df_mean['siAll']-min_val) / (max_val-min_val)
+    #df_mean['siCtrl-norm'] = (df_mean['siCtrl']-min_val) / (max_val-min_val)
+
+    df_mean['siAll-norm'] = df_mean['siAll'] / max_val
+    df_mean['siCtrl-norm'] = df_mean['siCtrl'] / max_val
 
     # Plotting the normalized data:
-    sns.lineplot(data=df_mean, x='Time (s)', y='siAll-norm', ax=axs2[row_i][col_i])
-    sns.lineplot(data=df_mean, x='Time (s)', y='siCtrl-norm', ax=axs2[row_i][col_i])
+    sns.lineplot(data=df_mean, x='Time (s)', y='siAll-norm', ax=axs2[row_i][col_i], label='siAll', color='orange')
+    sns.lineplot(data=df_mean, x='Time (s)', y='siCtrl-norm', ax=axs2[row_i][col_i], label='siCtrl', color='blue')
+    axs2[row_i][col_i].set_ylabel('Intensity (norm)')
     axs2[row_i][col_i].set_title(protein_name)
-    if (row_i == 0 and col_i == 0):
-        axs2[row_i][col_i].legend()
+    if (not (row_i == 0 and col_i == 0)):
+        axs2[row_i][col_i].get_legend().remove()
 
     data_for_hm_norm[protein_name]=df_mean['siAll-norm'] - df_mean['siCtrl-norm']
 
@@ -163,15 +182,28 @@ for i,cur_dir in enumerate(dir_list):
     else:
         row_i += 1
 
-# SAVE STATS, HEATMAP DATA, PLOTS
-pvalue_df = pd.DataFrame(pvalue_matrix, columns=['protein','start_t','end_t','p-value','sig'])
-pvalue_df.to_csv(f"{root_dir}/all_pvalues.csv")
+if(subtract_t0):
+    suff='_subtract-t0'
+else:
+    suff=''
 
-data_for_hm_norm.to_csv(f"{root_dir}/all_for_heatmap_NORM.csv")
+# SAVE STATS, HEATMAP DATA, PLOTS
+pvalue_df = pd.DataFrame(pvalue_matrix, columns=['protein',
+                                                 'start_t',
+                                                 'end_t',
+                                                 'siAll_neg',
+                                                 'siAll_n',
+                                                 'siCtrl_neg',
+                                                 'siCtrl_n',
+                                                 'MW p-value',
+                                                 'sig'])
+pvalue_df.to_csv(f"{root_dir}/all_pvalues{suff}-{p_cutoff}-{p_value_window}.csv")
+
+data_for_hm_norm.to_csv(f"{root_dir}/all_for_heatmap{suff}.csv")
 
 fig2.tight_layout()
-fig2.savefig(f"{root_dir}/all_norm.png")
+fig2.savefig(f"{root_dir}/all_norm{suff}.png")
 
 if(make_plot):
     fig.tight_layout()
-    fig.savefig(f"{root_dir}/all_raw.png")
+    fig.savefig(f"{root_dir}/all_raw{suff}-{p_cutoff}-{p_value_window}.png")
