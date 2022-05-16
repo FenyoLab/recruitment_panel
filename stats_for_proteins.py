@@ -9,12 +9,12 @@ from scipy.stats import mannwhitneyu
 root_dir = "/Users/snk218/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized BER recruitment data only"
 n_timepoints=242
 subtract_t0=True
-p_value_window = 50
-p_cutoff=0.05
+p_value_window = 60
+p_cutoff=0.01
 
 dir_list = next(os.walk(root_dir))[1]
 num_proteins = len(dir_list)
-make_plot=True
+make_plot=False
 
 pvalue_matrix=[]
 fig, axs = plt.subplots(nrows=7, ncols=5, figsize=(20,15),sharex=True) # room for 35 proteins (there are 31)
@@ -72,14 +72,23 @@ for i,cur_dir in enumerate(dir_list):
     df_full=pd.concat([df_all,df_ctrl], ignore_index=True)
 
     # STATISTICS OVER TIME WINDOWS FROM START TO FINISH
-    # Take the mean intensity of siALL/siCtrl for time windows of 50s
+    # Take the mean intensity of siALL/siCtrl for sliding windows of 60sec across the first 10min
     # Use Mann Whitney to test for significance and get a p-value for each time window
     times_sig=[]
     times_sig_=[]
-    max_time=int(np.max(df_all['Time (s)']))
-    for start_t in range(25, 1150 + p_value_window, p_value_window):
+
+    # ignore first 20 seconds, go up to 10 minutes
+    # slide by every 5 seconds (the time step of the movies)
+    start_time=20
+    max_time=10*60 #int(np.max(df_all['Time (s)']))
+    time_increment=5
+    p_value_window=60 # look for significance in average intensity over 1 minute intervals
+
+    for start_t in range(start_time, max_time+time_increment, time_increment):
         #print(start_t)
         end_t = start_t + p_value_window
+        if(end_t > max_time):
+            break
 
         df_all_filt = df_all[(df_all['Time (s)'] >= start_t) & (df_all['Time (s)'] <= end_t)]
         df_all_data = df_all_filt.groupby('cell').mean()['intensity-diff']
@@ -106,27 +115,26 @@ for i,cur_dir in enumerate(dir_list):
                 times_sig_=[]
 
         pvalue_matrix.append([
-            protein_name,
-            start_t,
-            min(end_t,max_time),
-            num_neg_siAll,
-            len(df_all_data),
-            num_neg_siCtrl,
-            len(df_ctrl_data),
-            p,
-            sig
-        ])
+           protein_name,
+           start_t,
+           end_t,
+           num_neg_siAll,len(df_all_data),
+           num_neg_siCtrl,
+           len(df_ctrl_data),
+           p])
     if(times_sig_!=[]):
         times_sig.append(times_sig_)
 
     p_times=[]
+    if(len(times_sig) > 1):
+        print("*Note: multiple significant intervales for protein!*")
     if(len(times_sig) > 0):
         times_sig_len=[len(x) for x in times_sig]
         max_index = times_sig_len.index(max(times_sig_len))
         times_sig=times_sig[max_index]
 
         p_times.append(times_sig[0])
-        p_times.append(min(times_sig[-1]+p_value_window,max_time))
+        p_times.append(times_sig[-1]+p_value_window)
 
 
     # PLOT
@@ -195,9 +203,8 @@ pvalue_df = pd.DataFrame(pvalue_matrix, columns=['protein',
                                                  'siAll_n',
                                                  'siCtrl_neg',
                                                  'siCtrl_n',
-                                                 'MW p-value',
-                                                 'sig'])
-pvalue_df.to_csv(f"{root_dir}/all_pvalues{suff}-{p_cutoff}-{p_value_window}.csv")
+                                                 'MW p-value'])
+pvalue_df.to_csv(f"{root_dir}/all_pvalues{suff}-{p_value_window}.txt", sep='\t')
 
 data_for_hm_norm.to_csv(f"{root_dir}/all_for_heatmap{suff}.csv")
 
