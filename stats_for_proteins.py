@@ -6,10 +6,10 @@ import seaborn as sns
 import numpy as np
 from scipy.stats import mannwhitneyu
 
-root_dir = "/Users/snk218/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized BER recruitment data only"
+root_dir = "/Users/sarahkeegan/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized BER recruitment data only"
 n_timepoints=242
 subtract_t0=True
-p_value_window = 60
+p_value_window=60
 p_cutoff=0.01
 
 dir_list = next(os.walk(root_dir))[1]
