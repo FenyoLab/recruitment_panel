@@ -5,8 +5,11 @@ import re
 import seaborn as sns
 import numpy as np
 from scipy.stats import mannwhitneyu
+import getpass as gt
 
-root_dir = "/Users/sarahkeegan/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized BER recruitment data only"
+uid=gt.getuser()
+
+root_dir = f"/Users/{uid}/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized BER recruitment data only"
 n_timepoints=242
 subtract_t0=True
 p_value_window=60

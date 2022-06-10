@@ -5,16 +5,20 @@ import numpy as np
 import glob
 import os
 import re
+import getpass as gt
+
+uid=gt.getuser()
 
 # input each excel file and combine
-root_dir = "/Users/sarahkeegan/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP" + \
+root_dir = f"/Users/{uid}/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP" + \
            "/final_results/final data"
 
-#root_dir = "/Users/sarahkeegan/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP" + \
+#root_dir = f"/Users/{uid}/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP" + \
 #           "/final_results/normalized data export/Normalized Transform"
 
 nrows=7
-fig, axs = plt.subplots(nrows=nrows, ncols=5, figsize=(20,15), ) #sharex=True)
+ncols=5
+fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(20,15), ) #sharex=True)
 row_i=0
 row_i_=0
 col_i=0
@@ -77,16 +81,17 @@ for file_ in files_list:
         df_all_MSH = pd.concat([df_all_MSH, df[[f"{protein_name}-KO-1", f"{protein_name}-KO-2"]]],
                                axis=1, ignore_index=False)
 
-        sns.lineplot(data=df, x='Time (s)', y='C11', ax=axs[row_i_][4], label='KO-1', color='green')
-        sns.lineplot(data=df, x='Time (s)', y='G11', ax=axs[row_i_][4], label='KO-2', color='darkgreen')
-        sns.lineplot(data=df, x='Time (s)', y='WT', ax=axs[row_i_][4], label='WT', color='black')
+        # Plot KO cell lines in the final column (rows 0-3)
+        sns.lineplot(data=df, x='Time (s)', y='C11', ax=axs[row_i_][ncols-1], label='KO-1', color='green')
+        sns.lineplot(data=df, x='Time (s)', y='G11', ax=axs[row_i_][ncols-1], label='KO-2', color='purple')
+        sns.lineplot(data=df, x='Time (s)', y='WT', ax=axs[row_i_][ncols-1], label='WT', color='blue')
 
-        axs[row_i_][4].set_ylabel('Intensity (norm)')
-        axs[row_i_][4].set_title(f"{protein_name}-KO")
-        axs[row_i_][4].set_xlim(0,600)
+        axs[row_i_][ncols-1].set_ylabel('Intensity (norm)')
+        axs[row_i_][ncols-1].set_title(f"{protein_name}-KO")
+        axs[row_i_][ncols-1].set_xlim(0,600)
 
         if (row_i_ != 0):
-            axs[row_i_][4].get_legend().remove()
+            axs[row_i_][ncols-1].get_legend().remove()
         row_i_+=1
 
 fig.tight_layout()
