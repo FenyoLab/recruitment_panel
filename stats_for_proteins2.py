@@ -159,7 +159,7 @@ for i,cur_dir in enumerate(dir_list):
             times_sig[key].append(times_sig_[key])
 
         if (len(times_sig[key]) > 1):
-            print(f"*Note: multiple significant intervales for protein ({key})!*")
+            print(f"*Note: multiple significant intervals for protein ({key})!*")
 
         if(len(times_sig[key]) > 0):
             times_sig_len=[len(x) for x in times_sig[key]]
