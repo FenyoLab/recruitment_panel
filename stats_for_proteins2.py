@@ -9,14 +9,14 @@ import getpass as gt
 
 uid=gt.getuser()
 
-root_dir = f"/Users/{uid}/Dropbox/mac_files/fenyolab/data_and_results/Rona_FRAP"
+root_dir = f"/Users/{uid}/Dropbox (NYU Langone Health)/mac_files/fenyolab/data_and_results/Rona_FRAP"
 sub_dirs=["/final_results/Organized Recruitments data only/G1 recruitment siCCNDs",
           "/final_results/Organized Recruitments data only/S phase"]
 
 n_timepoints=242
 p_value_window=60
 p_cutoff=0.01
-
+# "/Users/snk218/Dropbox (NYU Langone Health)/mac_files/fenyolab/data_and_results/Rona_FRAP/final_results/Organized Recruitments data only/G1 recruitment siCCNDs"
 dir_list = next(os.walk(root_dir+"/"+sub_dirs[0]))[1]
 num_proteins = len(dir_list)
 make_plot=True
@@ -109,7 +109,7 @@ for i,cur_dir in enumerate(dir_list):
         for i, sheet_name in enumerate(data_sheets.keys()):
             cur_df = data_sheets[sheet_name]
             cur_data = cur_df[(cur_df['Time (s)'] >= start_t) &
-                              (cur_df['Time (s)'] <= end_t)].groupby('cell').mean()['intensity-diff']
+                              (cur_df['Time (s)'] <= end_t)].groupby('cell')['intensity-diff'].mean()
 
             num_neg = len(cur_data[cur_data < 0])
 
